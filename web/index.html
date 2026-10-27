@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Desafío de Integración Numérica | La Paz</title>
+<style>
+:root{--ink:#182235;--muted:#5c687a;--blue:#175cd3;--line:#dce3ed;--bg:#f5f7fb;--card:#fff;--good:#087443;--warn:#9a6700}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial}
+header{background:linear-gradient(120deg,#112b4e,#175cd3);color:white;padding:32px 20px}header .wrap,main{max-width:1150px;margin:auto}h1{margin:0 0 8px;font-size:clamp(1.7rem,4vw,2.6rem)}header p{margin:0;max-width:800px;color:#e8efff}
+main{padding:22px 16px 60px}.layout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:20px;align-items:start}
+.card{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:20px;box-shadow:0 5px 18px #1b33550b;margin-bottom:18px}
+h2{font-size:1.25rem;margin:0 0 12px}h3{font-size:1rem;margin:18px 0 8px}
+label{display:block;font-weight:650;font-size:.9rem;margin:12px 0 5px}select,input,textarea,button{font:inherit}select,input,textarea{width:100%;border:1px solid #bac6d6;border-radius:9px;padding:10px;background:white;color:var(--ink)}textarea{min-height:140px;font-family:ui-monospace,Consolas,monospace}
+button{border:0;border-radius:9px;background:var(--blue);color:white;padding:10px 14px;font-weight:700;cursor:pointer}button.secondary{background:#e9effb;color:#174b9b}button:hover{filter:brightness(.96)}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.muted{color:var(--muted);font-size:.92rem}.pill{display:inline-block;padding:4px 9px;border-radius:999px;background:#eaf2ff;color:#174b9b;font-size:.8rem;font-weight:700}
+.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.stat{border:1px solid var(--line);padding:13px;border-radius:10px;min-width:0}.stat small{display:block;color:var(--muted)}.stat strong{font-size:1.05rem;overflow-wrap:anywhere}
+table{border-collapse:collapse;width:100%;font-size:.9rem}th,td{padding:8px;border-bottom:1px solid var(--line);text-align:right}th:first-child,td:first-child{text-align:center}th{background:#f2f5fa}
+.notice{border-left:4px solid #d99b20;padding:10px 13px;background:#fff8e6;border-radius:6px}.success{color:var(--good)}.error{color:#b42318}.scroll{overflow:auto}.chart{width:100%;height:250px;border:1px solid var(--line);border-radius:10px;background:#fff}
+footer{text-align:center;color:var(--muted);font-size:.85rem;padding:20px}
+@media(max-width:800px){.layout{grid-template-columns:1fr}.stats{grid-template-columns:1fr}.card{padding:16px}}
+</style></head>
+<body>
+<header><div class="wrap"><h1>Desafío de Integración Numérica</h1><p>Aplicación didáctica para los ejercicios 19–27. Calcula con trapecio compuesto, Simpson 1/3 y Simpson 3/8, visualiza los pesos y exporta resultados para tu informe.</p></div></header>
+<main><div class="layout">
+<aside>
+<section class="card"><h2>Configuración</h2>
+<label for="exercise">Ejercicio</label><select id="exercise"></select>
+<div id="exerciseInfo" class="muted" style="margin-top:10px"></div>
+<label for="method">Método principal</label><select id="method"><option value="all">Comparar todos los métodos aplicables</option><option value="trap">Trapecio compuesto</option><option value="s13">Simpson 1/3</option><option value="s38">Simpson 3/8</option></select>
+<label for="unit">Unidad del resultado</label><input id="unit" value="">
+<div class="actions"><button id="load">Cargar datos</button><button class="secondary" id="demo">Prueba x² [0,2]</button></div>
+<p class="muted">Puedes editar los datos en el formato x,y: una pareja por línea. Los nodos deben estar igualmente espaciados.</p>
+</section>
+<section class="card"><h2>Datos de entrada</h2><label for="data">Pares x,y</label><textarea id="data" spellcheck="false"></textarea>
+<label for="reference">Valor de referencia (opcional)</label><input id="reference" type="number" step="any" placeholder="Dejar vacío si no se conoce">
+<div class="actions"><button id="calculate">Calcular resultados</button><button class="secondary" id="reset">Restaurar ejercicio</button></div>
+</section>
+</aside>
+<div>
+<section class="card"><h2 id="resultTitle">Resultados</h2><div id="message" class="muted">Carga un ejercicio o ingresa tus propios datos.</div><div id="stats" class="stats"></div>
+<div id="resultsTable" class="scroll" style="margin-top:16px"></div></section>
+<section class="card"><h2>Tabla de pesos de integración</h2><p class="muted">La tabla muestra el factor aplicado a cada valor de y para el método seleccionado o calculado.</p><div id="weights" class="scroll"></div></section>
+<section class="card"><h2>Gráfica de los datos</h2><canvas id="plot" class="chart" aria-label="Gráfica de datos" role="img"></canvas><p class="muted">Gráfica esquemática sin librerías externas. El área bajo la curva representa la integral aproximada.</p></section>
+<section class="card"><h2>Interpretación y limitaciones</h2><div id="interpretation" class="muted"></div><div class="actions"><button id="download">Descargar resultados CSV</button><button class="secondary" id="copyReport">Copiar resumen</button></div></section>
+</div></div></main><footer>Material académico de métodos numéricos · Datos adaptados de la guía proporcionada · No sustituye mediciones de ingeniería.</footer>
+<script>
+const exercises = {"19": {"title": "Distancia de un vehículo", "x": [0, 1, 2, 3, 4, 5, 6, 7], "y": [0.0, 0.0038888888888888888, 0.010833333333333334, 0.019166666666666665, 0.02638888888888889, 0.03166666666666667, 0.035833333333333335, 0.03861111111111111], "units": "mi", "xunit": "s", "yunit": "mi/h", "ref": 0.147072, "ref_label": "Simpson combinado del solucionario", "description": "Integrar la velocidad durante 7 s y dividir la integral en mi/h·s entre 3600 para obtener millas. En la tabla de la app, v se convierte a mi/s dividiendo cada dato entre 3600; así la integral queda en mi."}, "20": {"title": "Trabajo de la banda elástica", "x": [0, 0.4, 0.8, 1.2, 1.6, 2.0, 2.4, 2.8], "y": [0, 0.85, 1.3, 1.6, 1.87, 2.14, 2.34, 2.52], "units": "lb·in", "xunit": "in", "yunit": "lb", "ref": 4.577167, "ref_label": "Simpson combinado del solucionario", "description": "El trabajo es W = integral F(x) dx. La tabla representa fuerza en función del desplazamiento."}, "21": {"title": "Área de un perfil topográfico", "x": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], "y": [1.3, 3.7, 4.6, 4.4, 2.7, 2.5, 3.6, 5.3, 6.0, 5.9], "units": "u²", "xunit": "u", "yunit": "u", "ref": 36.85, "ref_label": "Estimación Simpson + trapecio del solucionario", "description": "Integrar la altura tabulada entre x=1 y x=10. Los datos son ilustrativos digitalizados visualmente."}, "22": {"title": "Longitud de una catenaria", "x": [], "y": [], "units": "ft", "xunit": "ft", "yunit": "", "ref": 43.898841, "ref_label": "Valor analítico del solucionario", "description": "y = 24 cosh(x/24), x de −12 a 26 ft. La longitud es integral sqrt(1+(y')²) dx = integral cosh(x/24) dx. Para la tabla de la app se usa el integrando 24 cosh(x/24), de modo que el resultado ya está en ft.", "samples": "-12, 27.063023165\n-7.25, 25.1034048095\n-2.5, 24.1303261135\n2.25, 24.1055460203\n7, 25.028090696\n11.75, 26.9342152589\n16.5, 29.8988285706\n21.25, 34.0384370824\n26, 39.5157234264"}, "23": {"title": "Caudal de una tubería", "x": [], "y": [], "units": "in³/s", "xunit": "in", "yunit": "", "ref": 12.82817, "ref_label": "Valor analítico del solucionario", "description": "Q = integral 2πr v(r) dr, v(r)=80(1−r/R)^(1/7), R=0.25 in. El integrando es 160πr(1−r/0.25)^(1/7).", "samples": "0, 0\n0.03125, 15.4111594261\n0.0625, 30.150983411\n0.09375, 44.0637174977\n0.125, 56.9082961967\n0.15625, 68.2711479404\n0.1875, 77.3147858374\n0.21875, 81.6968029855\n0.25, 0"}, "24": {"title": "Longitud de una cardioide", "x": [], "y": [], "units": "", "xunit": "rad", "yunit": "", "ref": 80.0, "ref_label": "Valor analítico del solucionario", "description": "x(t)=10 cos(t)−5 cos(2t), y(t)=10 sin(t)−5 sin(2t), longitud = integral 20 sin(t/2) dt en [0,2π].", "samples": "0, 0\n0.7853981634, 7.6536686473\n1.570796327, 14.1421356237\n2.35619449, 18.4775906502\n3.141592654, 20\n3.926990817, 18.4775906502\n4.71238898, 14.1421356237\n5.497787144, 7.6536686473\n6.283185307, 2.44929359829e-15"}, "25": {"title": "Energía potencial gravitatoria", "x": [], "y": [], "units": "J", "xunit": "m", "yunit": "", "ref": 3486236787.0, "ref_label": "Valor analítico del solucionario", "description": "ΔU = m g₀ integral R²/(R+y)² dy, con m=500 kg, g₀=9.81 m/s², R=6,371,000 m y h=800,000 m.", "samples": "0, 4905\n100000, 4754.57193203\n200000, 4610.95928611\n300000, 4473.75648127\n400000, 4342.58766357\n500000, 4217.10412924\n600000, 4096.98200484\n700000, 3981.92015533\n800000, 3871.63829493"}, "26": {"title": "Superficie del lago Erie", "x": [], "y": [], "units": "mi²", "xunit": "mi", "yunit": "mi", "ref": 9940, "ref_label": "Área de referencia indicada en el documento", "description": "Integrar anchuras w(x) entre 40 y 260 mi, midiendo anchuras cada 20 mi. El documento no proporciona una tabla oficial de anchuras; se requiere digitalizar la figura.", "samples": "40, 0\n60, 0\n80, 0\n100, 0\n120, 0\n140, 0\n160, 0\n180, 0\n200, 0\n220, 0\n240, 0\n260, 0"}, "27": {"title": "Volumen de un objeto alargado", "x": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], "y": [0.0, 5.3092915845667505, 8.042477193189871, 18.09557368467721, 24.630086404143974, 28.274333882308138, 30.190705400997917, 28.274333882308138, 24.630086404143974, 18.09557368467721, 8.55298599939821, 5.3092915845667505, 0.0], "units": "in³", "xunit": "in", "yunit": "in", "ref": 201.842092, "ref_label": "Simpson 1/3 del solucionario", "description": "Con d(z) tabulado, r=d/2 y V=π integral r² dz. Para superficie, S=2π integral r dz es simplificada; la fórmula geométrica incluye sqrt(1+(r')²). Para calcular volumen en la app, la columna y se transforma a π(d/2)²; edita si deseas ingresar otro integrando."}};
+const $=id=>document.getElementById(id);
+let currentKey="19", lastRows=[], lastSummary="";
+for(const [k,e] of Object.entries(exercises)){let o=document.createElement("option");o.value=k;o.textContent=`Ejercicio ${k} · ${e.title}`;$("exercise").appendChild(o);}
+function format(v){return Number.isFinite(v)?v.toLocaleString("es-BO",{maximumFractionDigits:9,minimumFractionDigits:6}):"—";}
+function loadExercise(key){
+ currentKey=key;let e=exercises[key];$("exerciseInfo").textContent=e.description;$("unit").value=e.units;
+ $("reference").value=e.ref==null?"":e.ref;
+ if(e.x && e.x.length){$("data").value=e.x.map((x,i)=>`${x}, ${e.y[i]}`).join("\n");}
+ else {$("data").value=e.samples||"";}
+ $("message").textContent="Datos cargados. Revisa el integrando y sus unidades antes de calcular."; $("stats").innerHTML="";$("resultsTable").innerHTML="";$("weights").innerHTML="";$("interpretation").textContent="";
+}
+function parseData(){
+ let lines=$("data").value.trim().split(/\n+/).filter(Boolean), x=[],y=[];
+ for(let line of lines){let p=line.trim().split(/[,\s;]+/);if(p.length<2)throw Error(`Fila inválida: "${line}". Usa x,y.`);let a=Number(p[0]),b=Number(p[1]);if(!Number.isFinite(a)||!Number.isFinite(b))throw Error(`Dato no numérico: "${line}".`);x.push(a);y.push(b);}
+ if(x.length<2)throw Error("Ingresa al menos dos parejas x,y.");
+ for(let i=1;i<x.length;i++){if(x[i]<=x[i-1])throw Error("Los valores x deben ser estrictamente crecientes.");}
+ let h=(x[x.length-1]-x[0])/(x.length-1),tol=1e-7*Math.max(1,Math.abs(h));
+ for(let i=1;i<x.length;i++)if(Math.abs((x[i]-x[i-1])-h)>tol)throw Error("Los nodos x no tienen espaciamiento uniforme.");
+ return {x,y,h,n:x.length-1};
+}
+function trap(x,y){let n=x.length-1,h=(x[n]-x[0])/n;let weights=y.map((_,i)=>(i===0||i===n)?h/2:h);return {value:weights.reduce((s,w,i)=>s+w*y[i],0),weights};}
+function s13(x,y){let n=x.length-1;if(n%2)throw Error("Simpson 1/3 requiere n par.");let h=(x[n]-x[0])/n;let weights=y.map((_,i)=>h/3*(i===0||i===n?1:(i%2?4:2)));return {value:weights.reduce((s,w,i)=>s+w*y[i],0),weights};}
+function s38(x,y){let n=x.length-1;if(n%3)throw Error("Simpson 3/8 requiere n múltiplo de 3.");let h=(x[n]-x[0])/n;let weights=y.map((_,i)=>3*h/8*((i===0||i===n)?1:(i%3===0?2:3)));return {value:weights.reduce((s,w,i)=>s+w*y[i],0),weights};}
+function mixed(x,y){let n=x.length-1;if(n===7){let a=s13(x.slice(0,5),y.slice(0,5)),b=s38(x.slice(4),y.slice(4));let weights=Array(n+1).fill(0);a.weights.forEach((w,i)=>weights[i]+=w);b.weights.forEach((w,i)=>weights[i+4]+=w);return {value:a.value+b.value,weights,label:"Simpson combinado (1/3 para 4 subintervalos + 3/8 para 3)"};}
+ if(n===9){let a=s13(x.slice(0,9),y.slice(0,9)),b=trap(x.slice(8),y.slice(8));let weights=Array(n+1).fill(0);a.weights.forEach((w,i)=>weights[i]+=w);b.weights.forEach((w,i)=>weights[i+8]+=w);return {value:a.value+b.value,weights,label:"Simpson 1/3 (8 subintervalos) + trapecio (1 subintervalo)"};}
+ if(n%2===0)return s13(x,y);throw Error("n no permite una combinación automática de Simpson.");}
+function run(){
+ try{
+  let d=parseData(), {x,y,n,h}=d, results=[];
+  let methods=[["Trapecio compuesto",()=>trap(x,y)],["Simpson 1/3",()=>s13(x,y)],["Simpson 3/8",()=>s38(x,y)]];
+  for(let [name,fn] of methods){try{let r=fn();results.push({name,...r});}catch(err){results.push({name,error:err.message});}}
+  if(n===7||n===9){try{let r=mixed(x,y);results.push({name:r.label,...r});}catch{}}
+  let ref=$("reference").value.trim()===""?null:Number($("reference").value);
+  if(ref!==null&&!Number.isFinite(ref))throw Error("El valor de referencia no es válido.");
+  let applicable=results.filter(r=>!r.error), chosen=$("method").value;
+  let show=chosen==="all"?results:results.filter(r=>(chosen==="trap"?r.name.startsWith("Trapecio"):chosen==="s13"?r.name.startsWith("Simpson 1/3"):r.name.startsWith("Simpson 3/8")));
+  $("message").innerHTML=`n = ${n} subintervalos · h = ${format(h)} · intervalo [${format(x[0])}, ${format(x[n])}]`;
+  $("stats").innerHTML=applicable.slice(0,3).map(r=>`<div class="stat"><small>${r.name}</small><strong>${format(r.value)}</strong><small>${$("unit").value||"unidades no indicadas"}</small></div>`).join("");
+  $("resultsTable").innerHTML=`<table><thead><tr><th>Método</th><th>Resultado</th><th>Error absoluto</th><th>Error porcentual</th><th>Estado</th></tr></thead><tbody>${show.map(r=>{let ea=ref===null||r.error?null:Math.abs(ref-r.value),ep=ea===null||ref===0?null:100*ea/Math.abs(ref);return `<tr><td>${r.name}</td><td>${r.error?"—":format(r.value)}</td><td>${ea===null?"No disponible":format(ea)}</td><td>${ep===null?"No disponible":format(ep)+"%"}</td><td>${r.error?`<span class="error">${r.error}</span>`:"Aplicable"}</td></tr>`}).join("")}</tbody></table>`;
+  let chosenRow=show.find(r=>!r.error)||applicable[0];$("weights").innerHTML=chosenRow?`<p class="muted">Método: ${chosenRow.name}. La suma de productos peso × y produce la aproximación.</p><table><thead><tr><th>i</th><th>xᵢ</th><th>yᵢ</th><th>Peso</th><th>Peso × yᵢ</th></tr></thead><tbody>${x.map((v,i)=>`<tr><td>${i}</td><td>${format(v)}</td><td>${format(y[i])}</td><td>${format(chosenRow.weights[i]||0)}</td><td>${format((chosenRow.weights[i]||0)*y[i])}</td></tr>`).join("")}</tbody></table>`:"No hay método aplicable.";
+  $("interpretation").textContent=ref===null?"No se proporcionó valor de referencia: el error verdadero no puede calcularse. Compara la convergencia entre métodos sin llamar error verdadero a la diferencia entre aproximaciones.":`Valor de referencia: ${format(ref)} ${$("unit").value}. El error absoluto es |Iref − Iaprox| y el porcentual es 100·Ea/|Iref|. Revisa si el valor de referencia corresponde a las mismas unidades y al mismo modelo.`;
+  lastRows=results;lastSummary=`Ejercicio ${currentKey} — ${exercises[currentKey].title}\n${$("message").innerText}\n`+results.map(r=>`${r.name}: ${r.error||format(r.value)+" "+$("unit").value}`).join("\n")+`\nReferencia: ${ref===null?"no indicada":ref}\nNota: ${exercises[currentKey].description}`;
+  draw(x,y);return;
+ }catch(e){$("message").innerHTML=`<span class="error">${e.message}</span>`;}
+}
+function draw(x,y){let c=$("plot"),ctx=c.getContext("2d"),w=c.clientWidth,h=c.clientHeight,dpr=window.devicePixelRatio||1;c.width=w*dpr;c.height=h*dpr;ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);let pad=32,minX=Math.min(...x),maxX=Math.max(...x),minY=Math.min(0,...y),maxY=Math.max(...y);if(maxY===minY)maxY=minY+1;let X=v=>pad+(v-minX)/(maxX-minX)*(w-2*pad),Y=v=>h-pad-(v-minY)/(maxY-minY)*(h-2*pad);
+ ctx.strokeStyle="#dce3ed";ctx.lineWidth=1;for(let i=0;i<5;i++){let yy=pad+i*(h-2*pad)/4;ctx.beginPath();ctx.moveTo(pad,yy);ctx.lineTo(w-pad,yy);ctx.stroke();}
+ ctx.fillStyle="#175cd3";ctx.strokeStyle="#175cd3";ctx.lineWidth=2;ctx.beginPath();x.forEach((v,i)=>i?ctx.lineTo(X(v),Y(y[i])):ctx.moveTo(X(v),Y(y[i])));ctx.stroke();x.forEach((v,i)=>{ctx.beginPath();ctx.arc(X(v),Y(y[i]),3.5,0,Math.PI*2);ctx.fill();});}
+$("load").onclick=()=>loadExercise($("exercise").value);$("exercise").onchange=()=>loadExercise($("exercise").value);
+$("calculate").onclick=run;$("reset").onclick=()=>loadExercise(currentKey);
+$("demo").onclick=()=>{$("data").value="0, 0\n0.5, 0.25\n1, 1\n1.5, 2.25\n2, 4";$("unit").value="unidades";$("reference").value=(8/3).toString();$("exerciseInfo").textContent="Prueba requerida: f(x)=x² entre 0 y 2. Con n=4, Simpson 1/3 debe dar exactamente 8/3 en aritmética ideal.";run();};
+$("download").onclick=()=>{if(!lastRows.length){alert("Primero calcula resultados.");return;}let csv="Método,Resultado,Estado\n"+lastRows.map(r=>`"${r.name}",${r.value??""},"${r.error||"Aplicable"}"`).join("\n");let a=document.createElement("a");a.href=URL.createObjectURL(new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}));a.download=`ejercicio_${currentKey}_resultados.csv`;a.click();URL.revokeObjectURL(a.href);};
+$("copyReport").onclick=async()=>{if(!lastSummary){alert("Primero calcula resultados.");return;}try{await navigator.clipboard.writeText(lastSummary);$("copyReport").textContent="Resumen copiado";}catch{$("message").textContent=lastSummary;}};
+loadExercise("19");
+</script></body></html>
